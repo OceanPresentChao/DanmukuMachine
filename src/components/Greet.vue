@@ -1,30 +1,67 @@
+<!-- eslint-disable no-console -->
 <script setup lang="ts">
 import { ref } from 'vue'
-import { invoke } from '@tauri-apps/api/tauri'
-import { emit, listen } from '@tauri-apps/api/event'
-const greetMsg = ref('')
-const name = ref('')
-const unlisten = await listen('click', async (event) => {
-  // event.event is the event name (useful if you want to use a single callback fn for multiple event types)
-  // event.payload is the payload object
-  console.log(event)
-  greetMsg.value = await invoke('greet', { name: name.value })
-})
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-  emit('click', {
-    theMessage: 'Tauri is awesome!',
-  })
+import { LIVE_SSL_URL, LIVE_URL } from '../utils/constant'
+import { decode, encode } from '../utils/headhandle'
+const roomId = ref(14327465)
+function connectRoom(roomId: number) {
+  const ws = new WebSocket(LIVE_SSL_URL)
+  ws.onopen = function () {
+    ws.send(encode(JSON.stringify({
+      roomid: roomId,
+    }), 'join'))
+    setInterval(() => {
+      ws.send(encode('', 'heartbeat'))
+    }, 30000)
+    ws.onmessage = async function (msgEvent) {
+      console.log('object')
+      const packet = await decode(msgEvent.data) as any
+      switch (packet.op) {
+        case 8:
+          console.log('加入房间')
+          break
+        case 3:{
+          const count = packet.body.count
+          console.log(`人气：${count}`)
+        }
+          break
+        case 5:
+          packet.body.content.forEach((body: any) => {
+            switch (body.cmd) {
+              case 'DANMU_MSG':
+                console.log(`${body.info[2][1]}: ${body.info[1]}`)
+                break
+              case 'SEND_GIFT':
+                console.log(`${body.data.uname} ${body.data.action} ${body.data.num} 个 ${body.data.giftName}`)
+                break
+              case 'WELCOME':
+                console.log(`欢迎 ${body.data.uname}`)
+                break
+                // 此处省略很多其他通知类型
+              default:
+                console.log(body)
+            }
+          })
+          break
+        default:
+          console.log(packet)
+      }
+    }
+  }
+// 如果使用的是控制台，这两句一定要一起执行，否侧onopen不会被触发
 }
 </script>
 
 <template>
-  <div class="card">
-    <input id="greet-input" v-model="name" placeholder="Enter a name...">
-    <button type="button" @click="greet()">
-      Greet
+  <div>
+    <label>请输入直播间id</label>
+    <input v-model="roomId" type="number">
+    <button @click="connectRoom(roomId)">
+      click me
     </button>
   </div>
-
-  <p>{{ greetMsg }}</p>
 </template>
+
+<style scoped>
+
+</style>
