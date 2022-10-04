@@ -1,9 +1,8 @@
-<!-- eslint-disable no-console -->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { LIVE_SSL_URL, LIVE_URL } from '../utils/constant'
 import { decode, encode } from '../utils/headhandle'
-const roomId = ref(14327465)
+const roomId = ref(33989)
 function connectRoom(roomId: number) {
   const ws = new WebSocket(LIVE_SSL_URL)
   ws.onopen = function () {
@@ -14,19 +13,18 @@ function connectRoom(roomId: number) {
       ws.send(encode('', 'heartbeat'))
     }, 30000)
     ws.onmessage = async function (msgEvent) {
-      console.log('object')
       const packet = await decode(msgEvent.data) as any
-      switch (packet.op) {
+      switch (packet.operatin) {
         case 8:
           console.log('加入房间')
           break
         case 3:{
-          const count = packet.body.count
+          const count = packet.body
           console.log(`人气：${count}`)
         }
           break
         case 5:
-          packet.body.content.forEach((body: any) => {
+          packet.body.forEach((body: any) => {
             switch (body.cmd) {
               case 'DANMU_MSG':
                 console.log(`${body.info[2][1]}: ${body.info[1]}`)
