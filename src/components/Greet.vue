@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { LIVE_SSL_URL, LIVE_URL } from '../utils/constant'
 import { decode, encode } from '../utils/headhandle'
-const roomId = ref(33989)
+const roomId = ref(21452505)
 function connectRoom(roomId: number) {
   const ws = new WebSocket(LIVE_SSL_URL)
   ws.onopen = function () {
@@ -14,7 +14,7 @@ function connectRoom(roomId: number) {
     }, 30000)
     ws.onmessage = async function (msgEvent) {
       const packet = await decode(msgEvent.data) as any
-      switch (packet.operatin) {
+      switch (packet.operation) {
         case 8:
           console.log('加入房间')
           break
@@ -36,6 +36,15 @@ function connectRoom(roomId: number) {
                 console.log(`欢迎 ${body.data.uname}`)
                 break
                 // 此处省略很多其他通知类型
+              case 'INTERACT_WORD':
+                console.warn(` ${body.data.uname}进来了`)
+                break
+              case 'WATCHED_CHANGE':
+                console.error(` 当前人气${body.data.num}  ${body.data.text_large}`)
+                break
+              case 'LIKE_INFO_V3_UPDATE':
+                console.error(` 当前点击量${body.data.click_count}`)
+                break
               default:
                 console.log(body)
             }

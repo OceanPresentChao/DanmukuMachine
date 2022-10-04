@@ -22,12 +22,12 @@ export function readInt(buffer: IntBuffer, start: number, len: number) {
   return result
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function cutBuffer(buffer: Uint8Array) {
   const bufferPacks: Uint8Array[] = []
   let size = 0
   for (let i = 0; i < buffer.length; i += size) {
     size = readInt(buffer, i, 4)
-    console.log('!!!!', size, buffer.length)
     bufferPacks.push(buffer.slice(i, i + size))
   }
   return bufferPacks
@@ -64,40 +64,44 @@ export function decode(blob: Blob) {
         reject(new Error('receive Error'))
         return
       }
-      const wholebuffer = new Uint8Array(ev.target.result)
-      const packs = cutBuffer(wholebuffer)
-      console.log('###', packs.length)
-      const results: any[] = []
-      packs.forEach((buffer) => {
-        const result = {
-          packetLen: readInt(buffer, 0, 4),
-          headerLen: readInt(buffer, 4, 2),
-          protocol: readInt(buffer, 6, 2),
-          operation: readInt(buffer, 8, 4),
-          seq: readInt(buffer, 12, 4),
-          body: [] as any,
-          type: '',
-        }
-        if (result.operation === 3)
-          result.type = 'heartbeat'
-        if (result.operation === 5)
-          result.type = 'message'
-        if (result.operation === 8)
-          result.type = 'welcome'
+      const buffer = new Uint8Array(ev.target.result)
+      const result = {
+        packetLen: readInt(buffer, 0, 4),
+        headerLen: readInt(buffer, 4, 2),
+        protocol: readInt(buffer, 6, 2),
+        operation: readInt(buffer, 8, 4),
+        seq: readInt(buffer, 12, 4),
+        body: [] as any,
+        type: '',
+      }
+      if (result.operation === 3)
+        result.type = 'heartbeat'
+      if (result.operation === 5)
+        result.type = 'message'
+      if (result.operation === 8)
+        result.type = 'welcome'
 
-        const msgbody = buffer.slice(result.headerLen, result.packetLen)
-        if (result.protocol === 0)
-          result.body = JSON.parse(textDecoder.decode(msgbody))
-        if (result.protocol === 1 && msgbody.length === 4)
-          result.body = readInt(msgbody, 0, 4)
-        if (result.protocol === 2)
-          result.body = textDecoder.decode(pako.inflate(msgbody))
-        if (result.protocol === 3)
-          result.body = brotli.decompress(msgbody.buffer)
-        console.log(result.type, result.protocol, result.body)
-        results.push(result)
-      })
-      resolve(results)
+      const msgbody = buffer.slice(result.headerLen, result.packetLen)
+      if (result.protocol === 0)
+        result.body = JSON.parse(textDecoder.decode(msgbody))
+      if (result.protocol === 1 && msgbody.length === 4)
+        result.body = readInt(msgbody, 0, 4)
+      if (result.protocol === 2) {
+        // eslint-disable-next-line no-control-regex
+        result.body = textDecoder.decode(pako.inflate(msgbody)).split(/[\x00-\x1F]+/)
+          .filter(v => v[0] === '{').map((v) => {
+            try {
+              return JSON.parse(v)
+            }
+            catch {
+              return ''
+            }
+          })
+      }
+      if (result.protocol === 3)
+        result.body = brotli.decompress(msgbody.buffer)
+      console.log(result.type, result.protocol, result.body)
+      resolve(result)
     }
     reader.readAsArrayBuffer(blob)
   })
